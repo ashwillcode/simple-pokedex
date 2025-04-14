@@ -6,6 +6,7 @@ let pokemonRepository = (function () {
     let itemsPerPage = 20;
     let isLoading = false;
     let hasMoreItems = true;
+    let filteredPokemon = [];
 
     function capitalizeFirstLetter(string) {
         return string.charAt(0).toUpperCase() + string.slice(1);
@@ -43,6 +44,11 @@ let pokemonRepository = (function () {
         return typeColors[type] || '#FFFFFF'; // Default to white if type is not found
     }
 
+    function clearPokemonList() {
+        const ul = document.querySelector('.pokemon-list');
+        ul.innerHTML = '';
+    }
+
     function addListItem(pokemon) {
         let ul = document.querySelector('.pokemon-list');
         let listItem = document.createElement('li');
@@ -75,6 +81,37 @@ let pokemonRepository = (function () {
 
         button.addEventListener('click', function () {
             showDetails(pokemon);
+        });
+    }
+
+    function initializeSearch() {
+        const searchInput = document.getElementById('searchInput');
+        
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            clearPokemonList();
+            
+            if (searchTerm === '') {
+                // If search is empty, show all loaded Pokémon
+                pokemonList.forEach(pokemon => addListItem(pokemon));
+                return;
+            }
+
+            // Filter and display matching Pokémon
+            const matchingPokemon = pokemonList.filter(pokemon => 
+                pokemon.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (matchingPokemon.length === 0) {
+                // Show "no results" message
+                const ul = document.querySelector('.pokemon-list');
+                const noResults = document.createElement('li');
+                noResults.classList.add('list-group-item', 'text-center', 'text-muted');
+                noResults.textContent = 'No Pokémon found';
+                ul.appendChild(noResults);
+            } else {
+                matchingPokemon.forEach(pokemon => addListItem(pokemon));
+            }
         });
     }
 
@@ -186,7 +223,8 @@ let pokemonRepository = (function () {
         loadList: loadList,
         loadDetails: loadDetails,
         showDetails: showDetails,
-        initializeInfiniteScroll: initializeInfiniteScroll
+        initializeInfiniteScroll: initializeInfiniteScroll,
+        initializeSearch: initializeSearch
     };
 })();
 
@@ -196,4 +234,5 @@ pokemonRepository.loadList().then(() => {
         pokemonRepository.addListItem(pokemon);
     });
     pokemonRepository.initializeInfiniteScroll();
+    pokemonRepository.initializeSearch(); // Initialize search functionality
 });
