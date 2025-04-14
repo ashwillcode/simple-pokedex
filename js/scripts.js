@@ -2,6 +2,10 @@ let pokemonRepository = (function () {
     let unit = 'cm';
     let pokemonList = [];
     let apiUrl = 'https://pokeapi.co/api/v2/pokemon/';
+    let currentPage = 1;
+    let itemsPerPage = 20;
+    let isLoading = false;
+    let hasMoreItems = true;
 
     function capitalizeFirstLetter(string) {
         return string.charAt(0).toUpperCase() + string.slice(1);
@@ -75,7 +79,23 @@ let pokemonRepository = (function () {
     }
 
     function loadList() {
-        return fetch(apiUrl)
+        if (isLoading || !hasMoreItems) return Promise.resolve();
+        
+        isLoading = true;
+        const offset = (currentPage - 1) * itemsPerPage;
+        const paginatedUrl = `${apiUrl}?limit=${itemsPerPage}&offset=${offset}`;
+        
+        // Add loading indicator with pastel style
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.classList.add('text-center', 'my-3');
+        loadingIndicator.innerHTML = `
+            <div class="spinner-border" role="status" style="color: #B8E994;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        `;
+        document.querySelector('.container').appendChild(loadingIndicator);
+        
+        return fetch(paginatedUrl)
             .then((response) => response.json())
             .then((json) => {
                 json.results.forEach((item) => {
@@ -85,11 +105,47 @@ let pokemonRepository = (function () {
                     };
                     add(pokemon);
                 });
+                
+                // Check if we have more items to load
+                hasMoreItems = json.next !== null;
+                currentPage++;
+                isLoading = false;
+                
+                // Remove loading indicator
+                loadingIndicator.remove();
             })
             .catch((error) => {
                 console.error('Error loading Pokemon list', error);
-                alert('Unable to load Pokémon list. Please try again later.');
+                loadingIndicator.remove();
+                isLoading = false;
             });
+    }
+
+    function initializeInfiniteScroll() {
+        const options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && hasMoreItems && !isLoading) {
+                    loadList().then(() => {
+                        pokemonRepository.getAll().slice(-itemsPerPage).forEach((pokemon) => {
+                            pokemonRepository.addListItem(pokemon);
+                        });
+                    });
+                }
+            });
+        }, options);
+
+        // Create and observe sentinel element
+        const sentinel = document.createElement('div');
+        sentinel.id = 'sentinel';
+        sentinel.style.height = '20px';
+        document.querySelector('.container').appendChild(sentinel);
+        observer.observe(sentinel);
     }
 
     function loadDetails(pokemon) {
@@ -129,12 +185,15 @@ let pokemonRepository = (function () {
         addListItem: addListItem,
         loadList: loadList,
         loadDetails: loadDetails,
-        showDetails: showDetails
+        showDetails: showDetails,
+        initializeInfiniteScroll: initializeInfiniteScroll
     };
 })();
 
+// Initial load
 pokemonRepository.loadList().then(() => {
     pokemonRepository.getAll().forEach((pokemon) => {
         pokemonRepository.addListItem(pokemon);
     });
+    pokemonRepository.initializeInfiniteScroll();
 });
